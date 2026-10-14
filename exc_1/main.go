@@ -1,29 +1,21 @@
 package main
 
-import (
-	"encoding/json"
-	"log"
-	"net/http"
-)
+import "fmt"
 
-type User struct {
-	Name    string `json:"name"`
-	Course  string `json:"course"`
-	Message string `json:"message"`
+type user struct {
+	name   string
+	course string
 }
 
-func getUser(w http.ResponseWriter, r *http.Request) {
-	student := User{
-		Name:    "Luka Vujičić",
-		Course:  "Software Architectures for Big Data",
-		Message: "REST API running",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(student)
+func (u user) printDetails() {
+	fmt.Println("hello, world!")
+	fmt.Printf("student: %s\ncourse: %s\n", u.name, u.course)
 }
 
 func main() {
-	http.HandleFunc("/user", getUser)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	student := user{
+		name:   "Luka Vujičić",
+		course: "Software Architectures for Big Data",
+	}
+	student.printDetails()
 }
