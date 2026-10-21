@@ -9,12 +9,14 @@ type DatabaseHandler struct {
 	orders []model.Order
 }
 
-// todo
 func NewDatabaseHandler() *DatabaseHandler {
-	// Init the drinks slice with some test data
-	// drinks := ...
+	drinks := []model.Drink{
+		{ID: 1, Name: "water", Description: "tap water", Price: 0.50},
+		{ID: 2, Name: "coffee", Description: "black filter coffee", Price: 2.50},
+		{ID: 3, Name: "beer", Description: "local lager", Price: 4.00},
+	}
 
-	// Init orders slice with some test data
+	orders := []model.Order{}
 
 	return &DatabaseHandler{
 		drinks: drinks,
@@ -30,15 +32,14 @@ func (db *DatabaseHandler) GetOrders() []model.Order {
 	return db.orders
 }
 
-// todo
 func (db *DatabaseHandler) GetTotalledOrders() map[uint64]uint64 {
-	// calculate total orders
-	// key = DrinkID, value = Amount of orders
-	// totalledOrders map[uint64]uint64
+	totalledOrders := make(map[uint64]uint64)
+	for _, o := range db.orders {
+		totalledOrders[o.DrinkID] += o.Amount
+	}
 	return totalledOrders
 }
 
 func (db *DatabaseHandler) AddOrder(order *model.Order) {
-	// todo
-	// add order to db.orders slice
+	db.orders = append(db.orders, *order)
 }
