@@ -85,28 +85,55 @@ class PostgresSink:
 class KafkaSink:
     """Your setup: the gateways send every reading to Kafka.
 
-    TODO (Part 2, Stage C1). clients/producer.py of Part 1 shows
-    how to produce. Decide, and justify in your decision record: which topic
-    (created how?), which key, which producer settings?
+    Topic: `readings`, created BEFORE the plant starts with kafka-topics.sh
+    (6 partitions, see SOLUTION.md). An auto-created topic would have only 1.
+    Key:   machine_id -> all readings of a machine go to the same partition,
+           so they reach the same detector instance, in seq order (R2).
     """
+
+    TOPIC = "readings"
 
     def __init__(self, args):
         from confluent_kafka import Producer
+        self.errors = []
         self.producer = Producer({
             "bootstrap.servers": args.bootstrap,
-            # TODO: more settings?
+            # same hash as the Java clients and Part 1: murmur2(key) mod #partitions
+            "partitioner": "murmur2_random",
+            # a reading counts as sent only when the broker has stored it
+            "acks": "all",
+            # retries can neither duplicate nor reorder readings within a partition (R2)
+            "enable.idempotence": True,
+            # batch up to 10 ms of readings per request instead of one request per reading
+            "linger.ms": 10,
+            "compression.type": "lz4",
         })
 
+    def _report(self, err, msg):
+        """Delivery report, called from poll()/flush() once the broker has answered."""
+        if err is not None:
+            self.errors.append(err)
+
     def send(self, reading):
-        # TODO: send the reading (as JSON) to Kafka: self.producer.produce(...)
-        raise NotImplementedError("KafkaSink.send() is part of your solution (Stage C1)")
+        key = reading["machine_id"]
+        value = json.dumps(reading)
+        while True:
+            try:
+                self.producer.produce(self.TOPIC, key=key, value=value, on_delivery=self._report)
+                return
+            except BufferError:                 # local queue full: let librdkafka send, then retry
+                self.producer.poll(0.1)
 
     def tick(self):
         """Called once per tick, after all readings of that tick were sent."""
-        self.producer.poll(0)
+        self.producer.poll(0)                   # serve delivery reports, never block (no flush per reading)
+        if self.errors:
+            raise RuntimeError(f"Kafka delivery failed: {self.errors[0]}")
 
     def close(self):
-        self.producer.flush(10)
+        left = self.producer.flush(10)
+        if left:
+            print(f"WARNING: {left} readings were not delivered to Kafka")
 
 
 # ---------------------------------------------------------------- simulation
